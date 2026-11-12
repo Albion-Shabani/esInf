@@ -1,75 +1,58 @@
-import math
-import lib.g2d as g2d
-import car
+import lib.polar as polar
 
-MAP_W, MAP_H = 512, 480
-BAR = 64
-VIEW_H = MAP_H - BAR
-SCALE = 2
+def clamp(v, vmin, vmax):
+    return min(max(v, vmin), vmax)
 
-BG = g2d.load_image("super-sprint-bg.png")
-
-# Waypoint della prima mappa, in coordinate del canvas (stimati dall'immagine!)
 WAYPOINTS = [
-    (250, 64), (380, 64), (432, 100), (440, 160), (440, 270),
-    (410, 320), (350, 335), (250, 335), (150, 335), (90, 320),
-    (70, 270), (70, 160), (85, 100), (130, 64),
-]
+    (216.0, 64.0), (375.0, 65.0), (441.0, 160.0), (437.0, 266.0), 
+    (412.0, 316.0), (341.0, 339.0), (260.0, 224.0), (170.0, 222.0),
+      (149.0, 332.0), (85.0, 313.0), (73.0, 231.0), (66.0, 128.0), 
+      (97.0, 66.0)
+    ]
 
 class Opponent:
-    def __init__(self, waypoints, speed=2.0, size=14):
-        self._wps = waypoints
+    def __init__(self):
+        self._wps = WAYPOINTS
         self._i = 1                       # prossimo waypoint da raggiungere
-        self._x, self._y = waypoints[0]   # parte dal primo punto (centro)
-        self._speed = speed
-        self._size = size
-        self._angle = 0.0
-
-    def pos(self):
-        """Angolo in alto a sinistra, come Car.pos()."""
-        return (self._x - self._size / 2, self._y - self._size / 2)
-
-    def center(self):
-        return (self._x, self._y)
+        self._x, self._y = WAYPOINTS[0]   # parte dal primo punto (centro)
+        self._speed = 0
+        self._angle = 0
+        self._rot = 90 / 8         # gradi per passo
+        self._max_speed = 6
 
     def move(self):
-        tx, ty = self._wps[self._i]
-        dx, dy = tx - self._x, ty - self._y
-        dist = math.hypot(dx, dy)
-        if dist < self._speed + 4:            # waypoint raggiunto
+        target = self._wps[self._i]
+        pos = (self._x, self._y)
+
+        if polar.dist(pos,target) < 15:
             self._i = (self._i + 1) % len(self._wps)
-            return
-        self._angle = math.atan2(dy, dx)
-        self._x += self._speed * dx / dist
-        self._y += self._speed * dy / dist
+            target = self._wps[self._i]
 
-    def draw(self):
-        g2d.set_color((220, 30, 30))
-        x, y = self.pos()
-        g2d.draw_rect((x, y), (self._size, self._size))
+        _, want = polar.to_polar(polar.vector(pos, target))             #angolo per andare al target
+        diff = polar.coterminal(want - self._angle * self._rot)
 
-car1 = car.Car((100, 36))
-opp = Opponent(WAYPOINTS)
+        if diff > self._rot:
+            self._angle += 1
+        elif diff < -self._rot:
+            self._angle -= 1
 
-DEBUG = True
+        if abs(diff) < 60:
+            self._speed += 0.2
+        else:
+            self._speed -= 0.4
 
-def tick():
-    g2d.clear_canvas()
-    g2d.draw_image(BG, (0, 0), (0, BAR), (MAP_W, VIEW_H))
+        self._speed = clamp(self._speed, 0, self._max_speed)
+        self._x, self._y = polar.move_around(pos, self._speed,self._angle * self._rot)
+            
+    def pos(self):
+        return self._x, self._y
+    
+    def sprite(self):
+        sprite_y, sprite_x = divmod(-self._angle % 32, 8)
+        sprite_y += 4           # macchina rossa
+        return (sprite_x * 16, sprite_y * 16, 16, 16)
 
-    if DEBUG:
-        g2d.set_color((0, 0, 255))
-        for p in WAYPOINTS:
-            g2d.draw_circle(p, 3)
-        if g2d.mouse_clicked():
-            print(g2d.mouse_pos(), ",")     # copia le coordinate dei click
+import lib.g2d as g2d
+import arena
 
-    car1.move(g2d.current_keys())
-    opp.move()
 
-    sx, sy, sw, sh = car1.sprite()
-    g2d.draw_image("super-sprint.png", car1.pos(), (sx, sy), (sw, sh))
-    opp.draw()
-
-g2d.init_canvas((MAP_W, VIEW_H), SCALE)
-g2d.main_loop(tick)

@@ -1,4 +1,3 @@
-import lib.g2d as g2d
 from lib.polar import move_around
 
 def clamp(v, vmin, vmax):
@@ -36,6 +35,12 @@ class Car:
     def pos(self):
         return self._x, self._y
 
+    def newPos(self,point):
+        print(point)
+        self._x, self._y = point
+
     def sprite(self):
         sprite_y, sprite_x = divmod(-self._angle % 32, 8)
+        #sprite_x += 8
+        #sprite_y += 4
         return (sprite_x * 16, sprite_y * 16, 16, 16)
